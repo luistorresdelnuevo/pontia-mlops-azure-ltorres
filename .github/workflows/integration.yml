@@ -1,0 +1,82 @@
+#name: Integration
+## Cuando se va a ejecutar esta pipeline - El objetivo es que corran todos los unittest cada vez qeu se haga un PR
+#on:        
+#  pull_request:
+#    branches: #sino pones ningún parámetro lo hace para cualquier rama
+#        - main
+#        - develop
+#    branches_ignore: #branches que no quiero que se ejecuten
+#        - dependabot/** #para que no corra la pipeline cuando se haga un PR de dependabot
+#    paths: #Se ejecuta cuando haya cambios en los siguientes archivos
+#      - 'src/**'
+#      - 'tests/**'
+#      - '.github/workflows/integration.yml'
+#    paths_ignore: #Se ignora cuando haya cambios en los siguientes archivos
+#      - 'docs/**'
+#      - 'README.md'
+#      - 'LICENSE'   
+
+
+
+name: Integration
+on:
+  pull_request:
+  workflow_dispatch:
+
+
+jobs:
+  integration: #esto puede ser cualquier nombre, es el nombre del job
+    runs-on: ubuntu-latest #esto puede ser cualquier runner, en este caso es ubuntu-latest
+    permissions: 
+      contents: read #permite leer el contenido del repositorio
+      pull-requests: write #permite escribir los resultados de la pipeline en el PR
+    steps:
+        - name: Checkout code #permite leer el respositorio en sí
+          uses: actions/checkout@v3 # esto permite a github actions leer la acciones de github, las sacan de aqui: https://github.com/marketplace 
+        
+        - name: Set up Python
+          uses: actions/setup-python@v4 # esto permite a github actions leer la acciones de github
+          with:
+            python-version: '3.11' #version de python que se va a usar
+
+        - name: Install dependencies
+          run: | #Se ejecuta en terminal
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+
+        - name: Run unit tests #se ejecuta en terminal
+          id: test #id del paso, se puede usar para referenciarlo en otros pasos
+          continue-on-error: true
+          run: |
+            mkdir -p test-results #crea una carpeta test-results
+            set -o pipefail
+            PYTHONPATH=src pytest unit_tests/ | tee test-results/results.log #Se ejecuta pytest en la carpeta unit_tests y se guarda el resultado
+            continue-on-error: true #si hay un error en los tests, no se detiene la pipeline, sino que sigue ejecutando los siguientes pasos
+
+
+        - name: Comentar resultados en PR
+          uses: actions/github-script@v7
+          with:
+            script: |
+                const fs = require('fs');
+                const results = fs.readFileSync('test-results/results.log', 'utf8');
+                const truncated = results.length > 65000 ? results.slice(0, 65000) + '\n...TRUNCATED...' : results;
+                github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: ### 🧪 Test Results with Coverage\n\n\``\n${truncated}\n````
+                });
+
+        - name: Fallo en caso de error en los tests
+          if: steps.test.outcome == 'failure' #se llama al id de test
+          run: exit 1 #sale con error
+
+
+
+
+
+
+
+
+
