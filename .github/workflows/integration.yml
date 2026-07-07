@@ -32,10 +32,10 @@ jobs:
       pull-requests: write #permite escribir los resultados de la pipeline en el PR
     steps:
         - name: Checkout code #permite leer el respositorio en sí
-          uses: actions/checkout@v3 # esto permite a github actions leer la acciones de github, las sacan de aqui: https://github.com/marketplace 
+          uses: actions/checkout@v4 # esto permite a github actions leer la acciones de github, las sacan de aqui: https://github.com/marketplace 
         
         - name: Set up Python
-          uses: actions/setup-python@v4 # esto permite a github actions leer la acciones de github
+          uses: actions/setup-python@v5 # esto permite a github actions leer la acciones de github
           with:
             python-version: '3.11' #version de python que se va a usar
 
@@ -51,22 +51,23 @@ jobs:
             mkdir -p test-results #crea una carpeta test-results
             set -o pipefail
             PYTHONPATH=src pytest unit_tests/ | tee test-results/results.log #Se ejecuta pytest en la carpeta unit_tests y se guarda el resultado
-            continue-on-error: true #si hay un error en los tests, no se detiene la pipeline, sino que sigue ejecutando los siguientes pasos
 
-
-        - name: Comentar resultados en PR
+        - name: Comment test results and coverage on PR
+          if: always() && github.event_name == 'pull_request'
           uses: actions/github-script@v7
           with:
             script: |
-                const fs = require('fs');
-                const results = fs.readFileSync('test-results/results.log', 'utf8');
-                const truncated = results.length > 65000 ? results.slice(0, 65000) + '\n...TRUNCATED...' : results;
-                github.rest.issues.createComment({
+              const fs = require('fs');
+              const results = fs.existsSync('test-results/results.log')
+                ? fs.readFileSync('test-results/results.log', 'utf8')
+                : 'No test results log was generated.';
+              const truncated = results.length > 65000 ? results.slice(0, 65000) + '\n...TRUNCATED...' : results;
+              github.rest.issues.createComment({
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 body: '### Test Results with Coverage\n\n```\n' + truncated + '\n```'
-                });
+              });
 
         - name: Fallo en caso de error en los tests
           if: steps.test.outcome == 'failure' #se llama al id de test
