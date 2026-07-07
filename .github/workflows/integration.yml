@@ -65,7 +65,7 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: ### 🧪 Test Results with Coverage\n\n\``\n${truncated}\n````
+                body: '### Test Results with Coverage\n\n```\n' + truncated + '\n```'
                 });
 
         - name: Fallo en caso de error en los tests
@@ -73,6 +73,8 @@ jobs:
           run: exit 1 #sale con error
 
 
+#Las pipelines son jobs y dentro de cada job unos steps, cada step es un comando que se ejecuta en la terminal.
+# tambien se puede trabajar una vez se ejecute un grupo de steps vaya al siguiente job
 
 
 
