@@ -1,59 +1,59 @@
 
 name: Build Model
 
-on:
+on: #se ejecuta en dos casos, cuando se hace push a la rama main y cuando se hace un workflow_dispatch (ejecutar manualmente)
   workflow_dispatch:
   push:
     branches:
       - main
 
-permissions:
+permissions: #esto permite a github actions escribir el repositorio.
   contents: write
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    env:
-      MLFLOW_TRACKING_URL: ${{ secrets.MLFLOW_TRACKING_URL }}
-      EXPERIMENT_NAME: ${{ vars.EXPERIMENT_NAME || 'adult-income-model' }}
-      MODEL_NAME: ${{ vars.MODEL_NAME || 'adult-income-model' }}
-    steps:
+jobs: #esto es un diccionario de jobs, cada job es un diccionario con sus pasos
+  build: #esto construye un job llamado build, que es el nombre del job, puede ser cualquier nombre
+    runs-on: ubuntu-latest # esto es el terminal donde se va a ejecutar el job, en este caso es ubuntu-latest, pero puede ser cualquier runner que github actions tenga disponible
+    env: #esto es un diccionario de variables de entorno, que se pueden usar en los pasos del job
+      MLFLOW_TRACKING_URL: ${{ secrets.MLFLOW_TRACKING_URL }} #esto
+      EXPERIMENT_NAME: ${{ vars.EXPERIMENT_NAME || 'adult-income-model' }} #esto es una
+      MODEL_NAME: ${{ vars.MODEL_NAME || 'adult-income-model' }} #esto es un modelo que se va a registrar en mlflow, si no existe se crea, si existe se actualiza
+    steps: #esto son los steps que se van a ejecutar en el job, cada step es un diccionario con sus parámetroa
       - name: Generate RUN_NAME
-        run: echo "RUN_NAME=run-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV
+        run: echo "RUN_NAME=run-$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_ENV #esto genera un nombre de run con la fecha y hora actual, y lo guarda en una variable de entorno llamada RUN_NAME, que se puede usar en los pasos siguientes
         
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v3 #esto permite a github actions leer el repositorio, para poder ejecutar los pasos siguientes
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v5 #esto es una aci
         with:
           python-version: '3.10'
 
       - name: Install dependencies
-        run: |
+        run: | #esto installa las dependencias del proyecto, en este caso es un proyecto de python, por lo que se usa pip para instalar las dependencias que están en el archivo requirements.txt
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           
       - name: Azure Login
-        uses: azure/login@v1
+        uses: azure/login@v1 #esto
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
           
       - name: Download Adult dataset
-        run: |
+        run: | #
           mkdir -p data/raw
           curl -o data/raw/adult.data https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data
           curl -o data/raw/adult.test https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test
           
       - name: Train and save model
         run: |
-          python src/main.py
+          python src/main.py #esto ejecuta el script main.py que entrena el modelo y lo guarda en la carpeta models, además de registrar el run en mlflow, con el nombre de run que se generó en el paso anterior
           
       - name: Save run ID to env
-        run: echo "RUN_ID=$(cat run_id.txt)" >> $GITHUB_ENV
+        run: echo "RUN_ID=$(cat run_id.txt)" >> $GITHUB_ENV #esto guarda el run_id que se generó en el paso anterior en una variable de entorno llamada RUN_ID, que se puede usar en los pasos siguientes
           
       - name: Run model tests
-        run: python model_tests/test_model.py
+        run: python model_tests/test_model.py #esto realiza las pruebas del modelo, que están en el archivo test_model.py, si alguna prueba falla, el job falla y no se ejecutan los pasos siguientes
 
       - name: Register model in MLflow
-        run: python scripts/register_model.py
+        run: python scripts/register_model.py #esto registra el modelo en mlflow, con el nombre de modelo que se definió en la variable de entorno MODEL_NAME, y con el run_id que se definió en la variable de entorno RUN_ID
